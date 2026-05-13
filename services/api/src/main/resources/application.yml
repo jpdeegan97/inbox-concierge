@@ -11,6 +11,18 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:mock-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:mock-client-secret}
+            scope: openid, profile, email, https://www.googleapis.com/auth/gmail.readonly
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   h2:
     console:
       enabled: true
@@ -19,4 +31,6 @@ server:
   port: 8080
 
 cors:
-  allowed-origins: http://localhost:5173
+  allowed-origins: http://localhost:5198
+
+

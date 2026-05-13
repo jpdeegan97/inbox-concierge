@@ -20,6 +20,6 @@ public class Bucket {
     private String name;
     private String description;
     private Integer priority;
-    private boolean isDefault;
-    private boolean createdByUser;
+    private Boolean isDefault;
+    private Boolean createdByUser;
 }

@@ -47,17 +47,15 @@ public class GmailService {
                     .setMaxResults((long) limit)
                     .execute();
             
-            List<Thread> threads = response.getThreads();
-            List<Thread> fullThreads = new ArrayList<>();
-            if (threads != null) {
-                for (Thread t : threads) {
-                    try {
-                        fullThreads.add(gmail.users().threads().get("me", t.getId()).setFormat("metadata").execute());
-                    } catch (Exception skipped) {
-                        // ignore broken threads
-                    }
+            List<Thread> threads = response.getThreads() != null ? response.getThreads() : new ArrayList<>();
+            List<Thread> fullThreads = threads.parallelStream().map(t -> {
+                try {
+                    return getGmailClient(authentication).users().threads().get("me", t.getId()).setFormat("full").execute();
+                } catch (Exception e) {
+                    return null;
                 }
-            }
+            }).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
+
             return fullThreads;
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch Gmail threads", e);
