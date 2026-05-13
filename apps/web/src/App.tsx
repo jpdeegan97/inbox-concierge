@@ -58,10 +58,12 @@ function App() {
         return res.json();
       })
       .then(data => {
-        setBuckets(data.buckets);
-        setGroups(data.groups);
-        if (data.groups.length > 0 && data.groups[0].threads.length > 0) {
-          setActiveEmail(data.groups[0].threads[0].threadId);
+        const fetchBuckets = data.buckets || [];
+        const fetchGroups = data.groups || [];
+        setBuckets(fetchBuckets);
+        setGroups(fetchGroups);
+        if (fetchGroups.length > 0 && fetchGroups[0].threads.length > 0) {
+          setActiveEmail(fetchGroups[0].threads[0].threadId);
         }
         setLoading(false);
       })
@@ -107,21 +109,32 @@ function App() {
     
     fetch('http://localhost:8080/api/inbox/reclassify', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ buckets: [...buckets, newBucket] })
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('API failed');
+        return res.json();
+      })
       .then(data => {
         setBuckets(data.buckets);
         setGroups(data.groups);
         setNewBucketName('');
         setShowAddBucket(false);
+      })
+      .catch(err => {
+        console.error("Reclassification failed", err);
+        alert("Failed to reclassify inbox. Check console details.");
+      })
+      .finally(() => {
         setLoading(false);
       });
   };
 
   const getCombinedEmails = () => {
-    return groups.flatMap(group => group.threads);
+    if (!groups) return [];
+    return groups.flatMap(group => group.threads || []);
   };
 
   return (
@@ -167,14 +180,22 @@ function App() {
             Buckets
             <button onClick={() => setShowAddBucket(true)} style={{ color: 'var(--accent-primary)', fontSize: '1rem', fontWeight: 'bold' }}>+</button>
           </div>
-          {buckets.map(b => (
-            <button key={b.id} className="nav-item">
-              <div className="nav-item-left">
-                <Archive size={18} />
-                <span>{b.name}</span>
-              </div>
-            </button>
-          ))}
+          {buckets.map(b => {
+            const count = groups.find(g => g.bucketId === b.id)?.threads.length || 0;
+            return (
+              <button 
+                key={b.id} 
+                className={`nav-item ${activeTab === b.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(b.id)}
+              >
+                <div className="nav-item-left">
+                  <Archive size={18} />
+                  <span>{b.name}</span>
+                </div>
+                <span className="badge">{count}</span>
+              </button>
+            );
+          })}
         </nav>
       </aside>
 
@@ -211,12 +232,16 @@ function App() {
               </div>
             </div>
 
-            <div className="email-list">
-              {loading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  Loading LLM Classifications... <Sparkles size={16} />
+            <div className={`email-list ${loading ? 'loading-blur' : ''}`}>
+              {loading && (
+                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--accent-primary)', fontWeight: 'bold' }}>
+                  <Sparkles size={16} className="spin-slow" style={{ marginRight: '0.5rem' }} /> 
+                  Reclassifying Emails...
                 </div>
-              ) : groups.map(group => (
+              )}
+              {groups
+                  .filter(group => activeTab === 'inbox' || group.bucketId === activeTab)
+                  .map(group => (
                 <div key={group.bucketId}>
                   <h3 style={{ margin: '1rem 0.5rem 0.5rem', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-primary)', letterSpacing: '0.05em' }}>
                     {group.bucketName}
@@ -253,13 +278,21 @@ function App() {
                 />
                 <button 
                   onClick={handleAddBucket}
-                  style={{ width: '100%', padding: '0.75rem', background: 'var(--accent-gradient)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  disabled={loading}
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem', opacity: loading ? 0.7 : 1 }}
                 >
-                  Create & Reclassify
+                  {loading ? (
+                    <>
+                      <Sparkles size={16} className="spin-slow" /> Reclassifying...
+                    </>
+                  ) : 'Create & Reclassify'}
                 </button>
                 <button 
                   onClick={() => setShowAddBucket(false)}
-                  style={{ width: '100%', padding: '0.75rem', background: 'transparent', color: 'var(--text-secondary)', border: 'none', marginTop: '0.5rem' }}
+                  disabled={loading}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem', background: 'transparent' }}
                 >
                   Cancel
                 </button>

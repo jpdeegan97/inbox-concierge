@@ -1,73 +1,61 @@
-# React + TypeScript + Vite
+# 📨 Inbox Concierge
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Inbox Concierge is an AI-powered smart email classifier that securely reads recent emails from your Gmail inbox and intelligently routes them into structured buckets using OpenAI's `gpt-4o-mini` foundation model.
 
-Currently, two official plugins are available:
+## 🏗️ Architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Backend:** Java Spring Boot (v3.x / Java 21)
+- **Frontend:** React + Vite + TypeScript + Tailwind CSS
+- **Datastore:** H2 In-Memory DB (Postgres schemas provided) & Redis Layer
+- **Integrations:** Gmail OAuth2 API & OpenAI Chat Completions API
 
-## React Compiler
+## 📋 Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Before running the application, ensure your environment has the following active:
+1. **Java 21**
+2. **Node.js** (v18+)
+3. **Redis** (Bound to port `6379`)
+4. **OpenAI API Key** bound to your environment variables (or Spring defaults to a mocked fallback if absent).
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚀 Running the Application
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. Boot up Redis
+The Spring Boot classification engine strictly requires a highly-available Redis datastore to intelligently cache evaluated email mappings to prevent rate-limiting and quota exhaustion on the OpenAI platform. 
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Start Redis easily using Docker:
+```bash
+docker run --name redis-concierge -p 6379:6379 -d redis
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 2. Start the Spring Boot Backend (API)
+Open a terminal, navigate into the service directory, and run the Maven wrapper:
+```bash
+cd "services/api"
+sh mvnw spring-boot:run
 ```
+*The backend server will successfully initialize and host the API over `http://localhost:8080`.*
+
+### 3. Start the React Frontend (UI)
+Open a new terminal tab, navigate into the web directory, and spin up the Vite development server:
+```bash
+cd "apps/web"
+npm install
+npm run dev
+```
+*The frontend will launch and serve the user interface—generally mapping to `http://localhost:5198` (check your terminal output for your exact port).*
+
+---
+
+## 🧪 Testing the Classification Flow
+
+1. Click **Log In With Google** on the frontend to grant the Concierge read-only execution privileges over your secure Inbox snippets.
+2. Observe the initial fetch of emails. The platform will bulk-poll the 25 most recent emails to evaluate.
+3. The platform leverages parallel streams throttling (5 concurrent jobs bounded by a 150ms token restock rate) to securely classify the email headers and snippets.
+4. **Create a Custom Bucket:** Locate the inputs to create a custom bucket (e.g. "Receipts/Bills").
+5. Observe the LLM dynamically invalidate the Redis cache mappings specifically for your custom categories, evaluating the 25 emails entirely over again to map into your newly added custom architecture.
+
+## 🗄️ Database Schemas (Optional PostgreSQL)
+By default, the backend relies on an auto-cleaning H2 In-Memory instance. If you prefer persistent bucket mappings, the migration schema is exported for your use locally in `services/api/src/main/resources/schema-postgres.sql`. 
+Simply hook up the `.yml` URL configuration into your external Postgres driver when ready.
